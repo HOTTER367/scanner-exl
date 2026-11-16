@@ -5,245 +5,91 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Сканер плазмы</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 12px; background: #f4f4f9; }
-h2 { text-align: center; font-size: 20px; margin: 5px 0 10px; }
-#videoContainer { width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; }
-video { width: 100%; display: block; max-height: 250px; object-fit: cover; }
-.controls { text-align: center; margin: 12px 0; }
-button { padding: 12px 16px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; margin: 4px; font-weight: bold; }
-.btn-start { background: #007bff; color: white; width: 90%; max-width: 320px; }
-.blood-panel { background: white; padding: 10px; border-radius: 8px; max-width: 500px; margin: 8px auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-.blood-title { font-size: 13px; color: #555; margin-bottom: 6px; font-weight: bold; }
-.blood-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.btn-blood { background: #e9ecef; color: #212529; padding: 12px 4px; font-size: 15px; border: 2px solid #ced4da; border-radius: 6px; margin: 0; }
-.btn-blood.active { background: #d9534f; color: white; border-color: #b52b27; }
-.lock-box { margin-top: 8px; font-size: 13px; color: #333; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.lock-box input { width: 16px; height: 16px; }
-.btn-download { background: #28a745; color: white; }
-.btn-clear { background: #6c757d; color: white; }
-#errorBox { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 6px; margin: 10px auto; max-width: 500px; display: none; font-size: 14px; }
-table { width: 100%; max-width: 500px; margin: 12px auto; border-collapse: collapse; background: white; }
-th, td { border: 1px solid #ddd; padding: 8px 6px; text-align: left; font-size: 13px; }
-th { background: #343a40; color: white; }
-.blood-cell { font-weight: bold; color: #c9302c; text-align: center; }
-.weight-cell { font-weight: bold; text-align: center; }
-.missing-data { background-color: #fff3cd; }
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
-.modal-box { background: white; padding: 20px; border-radius: 12px; width: 88%; max-width: 360px; text-align: center; }
-.modal-code { font-size: 14px; color: #555; margin-bottom: 12px; word-break: break-all; }
-.modal-input { width: 80%; padding: 12px; font-size: 24px; text-align: center; border: 2px solid #007bff; border-radius: 8px; margin-bottom: 15px; font-weight: bold; }
-.modal-buttons { display: flex; justify-content: space-between; gap: 10px; }
-.btn-save { background: #28a745; color: white; flex: 2; padding: 14px; font-size: 16px; }
-.btn-skip { background: #e9ecef; color: #333; flex: 1; padding: 14px; font-size: 14px; }
+body{font-family:sans-serif;margin:10px;background:#f4f4f9;text-align:center}
+video{width:100%;max-width:480px;max-height:240px;background:#000;border-radius:8px;object-fit:cover}
+button{padding:12px;font-size:15px;border:none;border-radius:6px;font-weight:bold;margin:3px;cursor:pointer}
+.b-main{background:#007bff;color:#fff;width:90%;max-width:300px}
+.b-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:480px;margin:8px auto}
+.b-grp{background:#e9ecef;border:2px solid #ccc;padding:12px 0}
+.b-grp.active{background:#d9534f;color:#fff;border-color:#b52b27}
+table{width:100%;max-width:480px;margin:10px auto;border-collapse:collapse;background:#fff;font-size:13px}
+th,td{border:1px solid #ddd;padding:6px}
+th{background:#333;color:#fff}
+.warn{background:#fff3cd}
+#err{color:#721c24;background:#f8d7da;padding:8px;border-radius:6px;display:none;margin:8px auto;max-width:480px}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center}
+.mbox{background:#fff;padding:18px;border-radius:10px;width:85%;max-width:320px}
+.mbox input{width:80%;padding:10px;font-size:22px;text-align:center;margin:10px 0;border:2px solid #007bff;border-radius:6px}
 </style>
 </head>
 <body>
+<div id="err"></div>
+<button id="sBtn" class="b-main" onclick="startCam()">📷 Включить камеру</button>
+<div><video id="vid" playsinline muted></video></div>
 
-<h2>Сканер плазмы</h2>
-<div id="errorBox"></div>
-
-<div class="controls">
-    <button id="startBtn" class="btn-start" onclick="startCamera()">📷 Включить камеру</button>
+<div class="b-grid">
+<button class="b-grp" onclick="setGrp('O(I)',this)">O(I)</button>
+<button class="b-grp" onclick="setGrp('A(II)',this)">A(II)</button>
+<button class="b-grp" onclick="setGrp('B(III)',this)">B(III)</button>
+<button class="b-grp" onclick="setGrp('AB(IV)',this)">AB(IV)</button>
 </div>
+<label><input type="checkbox" id="lock"> Закрепить группу</label><br>
 
-<div id="videoContainer">
-    <video id="video" playsinline muted></video>
-</div>
+<button style="background:#28a745;color:#fff" onclick="csv()">Скачать CSV</button>
+<button style="background:#6c757d;color:#fff" onclick="clr()">Очистить</button>
 
-<div class="blood-panel">
-    <div class="blood-title">Группа крови:</div>
-    <div class="blood-grid">
-        <button class="btn-blood" onclick="selectBlood('O(I)', this)">O(I)</button>
-        <button class="btn-blood" onclick="selectBlood('A(II)', this)">A(II)</button>
-        <button class="btn-blood" onclick="selectBlood('B(III)', this)">B(III)</button>
-        <button class="btn-blood" onclick="selectBlood('AB(IV)', this)">AB(IV)</button>
-    </div>
-    <label class="lock-box">
-        <input type="checkbox" id="lockBlood"> Закрепить группу для следующих пакетов
-    </label>
-</div>
+<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Вес</th></tr></thead><tbody></tbody></table>
 
-<div class="controls">
-    <button class="btn-download" onclick="downloadCSV()">Скачать CSV</button>
-    <button class="btn-clear" onclick="clearTable()">Очистить</button>
-</div>
-
-<table id="resultTable">
-    <thead>
-        <tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Вес</th></tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<div id="weightModal" class="modal-overlay">
-    <div class="modal-box">
-        <h3 style="margin-top:0;">Введите вес пакета</h3>
-        <div id="modalBarcodeText" class="modal-code"></div>
-        <input type="number" id="weightInput" class="modal-input" inputmode="decimal" step="any" placeholder="Например: 560">
-        <div class="modal-buttons">
-            <button class="btn-skip" onclick="closeModal()">Пропустить</button>
-            <button class="btn-save" onclick="saveWeight()">Сохранить</button>
-        </div>
-    </div>
-</div>
+<div id="modal"><div class="mbox">
+<b>Введите вес (г)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
+<input type="number" id="wIn" inputmode="decimal" onkeydown="if(event.key==='Enter')saveW()">
+<div><button onclick="closeM()">Пропустить</button><button style="background:#28a745;color:#fff" onclick="saveW()">Сохранить</button></div>
+</div></div>
 
 <script>
-let scannedCodes = new Set();
-let records = [];
-let detector = null;
-let currentBlood = "";
-let isPaused = false;
+let codes=new Set(),recs=[],det=null,grp="",paused=false;
+const err=m=>{let e=document.getElementById("err");e.style.display="block";e.innerText=m};
+const beep=()=>{try{let c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.frequency.value=800;o.connect(c.destination);o.start();o.stop(c.currentTime+.1)}catch(e){}};
 
-function showError(msg) {
-    const box = document.getElementById("errorBox");
-    box.style.display = "block";
-    box.innerText = msg;
+function setGrp(g,b){
+grp=g;document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+if(recs.length){recs[recs.length-1].g=g;updRow()}
 }
-
-function beep() {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(800, ctx.currentTime);
-        osc.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
+function updRow(){
+let r=document.querySelector("#tbl tbody tr"),l=recs[recs.length-1];
+if(r&&l){r.children.innerText=l.g||"—";r.children.innerText=l.w?l.w+" г":"—";if(l.g&&l.w)r.classList.remove("warn")}
 }
-
-function selectBlood(group, btnElement) {
-    currentBlood = group;
-    document.querySelectorAll('.btn-blood').forEach(b => b.classList.remove('active'));
-    btnElement.classList.add('active');
-    if (records.length > 0) {
-        records[records.length - 1].blood = group;
-        updateFirstRow();
-    }
+function addRec(raw){
+let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
+codes.add(c);beep();
+if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
+let i=recs.length+1;recs.push({i,c,g:grp,w:""});
+document.querySelector("#tbl tbody").insertAdjacentHTML('afterbegin',`<tr class="warn"><td>${i}</td><td><b>${c}</b></td><td>${grp||"—"}</td><td>—</td></tr>`);
+paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("wIn");inp.value="";
+document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
+function saveW(){if(recs.length){recs[recs.length-1].w=document.getElementById("wIn").value.trim();updRow()}closeM()}
+function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
-function updateFirstRow() {
-    const firstRow = document.querySelector("#resultTable tbody tr");
-    const last = records[records.length - 1];
-    if (firstRow && last) {
-        firstRow.children[2].innerText = last.blood || "—";
-        firstRow.children[3].innerText = last.weight ? last.weight + " г" : "—";
-        if (last.blood && last.weight) {
-            firstRow.classList.remove("missing-data");
-        }
-    }
+async function startCam(){
+document.getElementById("err").style.display="none";
+try{
+let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+let v=document.getElementById("vid");v.srcObject=s;await v.play();document.getElementById("sBtn").style.display="none";
+if('BarcodeDetector' in window){det=new BarcodeDetector();loop(v)}else err("Откройте сайт в Google Chrome");
+}catch(e){err("Нет доступа к камере: сбросьте разрешения сайта в настройках браузера")}
 }
-
-function addRecord(code) {
-    if (scannedCodes.has(code) || isPaused) return;
-    scannedCodes.add(code);
-    beep();
-
-    const isLocked = document.getElementById("lockBlood").checked;
-    if (!isLocked) {
-        currentBlood = "";
-        document.querySelectorAll('.btn-blood').forEach(b => b.classList.remove('active'));
-    }
-
-    const index = records.length + 1;
-    records.push({ index: index, code: code, blood: currentBlood, weight: "" });
-
-    const tbody = document.querySelector("#resultTable tbody");
-    const row = `<tr class="missing-data"><td>${index}</td><td><b>${code}</b></td><td class="blood-cell">${currentBlood || "—"}</td><td class="weight-cell">—</td></tr>`;
-    tbody.insertAdjacentHTML('afterbegin', row);
-
-    openWeightModal(code);
+async function loop(v){
+if(!paused&&v.readyState===v.HAVE_ENOUGH_DATA){try{(await det.detect(v)).forEach(b=>b.rawValue&&addRec(b.rawValue))}catch(e){}}
+requestAnimationFrame(()=>loop(v));
 }
-
-function openWeightModal(code) {
-    isPaused = true;
-    document.getElementById("modalBarcodeText").innerText = "Код: " + code;
-    const input = document.getElementById("weightInput");
-    input.value = "";
-    document.getElementById("weightModal").style.display = "flex";
-    setTimeout(() => input.focus(), 100);
+function csv(){
+if(!recs.length)return alert("Пусто");
+let t="№;Штрихкод;Группа крови;Вес\r\n"+recs.map(r=>`${r.i};"${r.c}";"${r.g}";"${r.w}"`).join("\r\n");
+let b=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),new TextEncoder().encode(t)],{type:"text/csv;charset=utf-8;"});
+let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
-
-function saveWeight() {
-    const val = document.getElementById("weightInput").value.trim();
-    if (records.length > 0) {
-        records[records.length - 1].weight = val;
-        updateFirstRow();
-    }
-    closeModal();
-}
-
-function closeModal() {
-    document.getElementById("weightModal").style.display = "none";
-    isPaused = false;
-}
-
-document.getElementById("weightInput").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") saveWeight();
-});
-
-async function startCamera() {
-    document.getElementById("errorBox").style.display = "none";
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showError("Браузер не поддерживает доступ к камере.");
-        return;
-    }
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
-            audio: false
-        });
-        const video = document.getElementById("video");
-        video.srcObject = stream;
-        await video.play();
-        document.getElementById("startBtn").style.display = "none";
-
-        if ('BarcodeDetector' in window) {
-            detector = new BarcodeDetector();
-            scanLoop(video);
-        } else {
-            showError("Этот браузер не поддерживает встроенный сканер. Откройте сайт в Google Chrome.");
-        }
-    } catch (err) {
-        showError("Доступ к камере отклонён (" + err.name + "). Нажмите на значок настроек слева от адресной строки → Разрешения → Сбросить разрешения.");
-    }
-}
-
-async function scanLoop(video) {
-    if (!isPaused && video.readyState === video.HAVE_ENOUGH_DATA) {
-        try {
-            const barcodes = await detector.detect(video);
-            for (const barcode of barcodes) {
-                if (barcode.rawValue) addRecord(barcode.rawValue);
-            }
-        } catch (e) {}
-    }
-    requestAnimationFrame(() => scanLoop(video));
-}
-
-function downloadCSV() {
-    if (records.length === 0) {
-        alert("Таблица пуста!");
-        return;
-    }
-    let csvContent = "\uFEFF№;Штрихкод;Группа крови;Вес\n";
-    records.forEach(r => {
-        csvContent += `${r.index};"${r.code}";"${r.blood}";"${r.weight}"\n`;
-    });
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `plasma_${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
-}
-
-function clearTable() {
-    if (confirm("Очистить список?")) {
-        scannedCodes.clear();
-        records = [];
-        document.querySelector("#resultTable tbody").innerHTML = "";
-    }
-}
+function clr(){if(confirm("Очистить?")){codes.clear();recs=[];document.querySelector("#tbl tbody").innerHTML=""}}
 </script>
 </body>
 </html>
