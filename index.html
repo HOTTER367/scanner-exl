@@ -35,7 +35,7 @@ th{background:#333;color:#fff}
 </div>
 <label><input type="checkbox" id="lock"> Закрепить группу</label><br>
 
-<button style="background:#28a745;color:#fff" onclick="csv()">Скачать CSV</button>
+<button style="background:#28a745;color:#fff" onclick="exportXLS()">Скачать Excel</button>
 <button style="background:#6c757d;color:#fff" onclick="clr()">Очистить</button>
 
 <table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Вес</th></tr></thead><tbody></tbody></table>
@@ -92,11 +92,12 @@ async function loop(v){
 if(!paused&&v.readyState===v.HAVE_ENOUGH_DATA){try{(await det.detect(v)).forEach(b=>b.rawValue&&addRec(b.rawValue))}catch(e){}}
 requestAnimationFrame(()=>loop(v));
 }
-function csv(){
+function exportXLS(){
 if(!recs.length)return alert("Пусто");
-let t="№;Штрихкод;Группа крови;Вес\r\n"+recs.map(r=>`${r.i};"${r.c}";"${r.g}";"${r.w}"`).join("\r\n");
-let b=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),new TextEncoder().encode(t)],{type:"text/csv;charset=utf-8;"});
-let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+let rows=recs.map(r=>`<tr><td>${r.i}</td><td style="mso-number-format:'\\@'">${r.c}</td><td>${r.g}</td><td>${r.w}</td></tr>`).join("");
+let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Вес</th></tr>${rows}</table></body></html>`;
+let b=new Blob([html],{type:"application/vnd.ms-excel;charset=utf-8"});
+let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.xls`;a.click();
 }
 function clr(){if(confirm("Очистить все сохранённые записи?")){codes.clear();recs=[];localStorage.removeItem(KEY);render()}}
 </script>
