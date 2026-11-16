@@ -1,62 +1,166 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Сканер штрихкодов</title>
-                <!-- Подключаем библиотеку для сканирования с камеры -->
-                    <script src="https://unpkg.com" type="text/javascript"></script>
-                        <style>
-                                body { font-family: Arial, sans-serif; margin: 15px; background: #f4f4f9; }
-                                        h2 { text-align: center; font-size: 20px; }
-                                                #reader { width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; }
-                                                        .controls { text-align: center; margin: 15px 0; }
-                                                                button { padding: 12px 20px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
-                                                                        .btn-download { background: #28a745; color: white; }
-                                                                                .btn-clear { background: #dc3545; color: white; }
-                                                                                        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
-                                                                                                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-                                                                                                        th { background: #007bff; color: white; }
-                                                                                                            </style>
-                                                                                                            </head>
-                                                                                                            <body>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сканер штрихкодов</title>
+    <script src="https://unpkg.com" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 15px; background: #f4f4f9; }
+        h2 { text-align: center; font-size: 20px; margin-bottom: 10px; }
+        #reader { width: 100%; max-width: 500px; margin: 0 auto; background: #222; border-radius: 8px; overflow: hidden; min-height: 250px; }
+        .controls { text-align: center; margin: 15px 0; }
+        button { padding: 12px 18px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-weight: bold; }
+        .btn-start { background: #007bff; color: white; width: 90%; max-width: 320px; }
+        .btn-download { background: #28a745; color: white; }
+        .btn-clear { background: #dc3545; color: white; }
+        #errorBox { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 6px; margin: 10px auto; max-width: 500px; display: none; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background: #343a40; color: white; }
+    </style>
+</head>
+<body>
 
-                                                                                                                <h2>Сканер штрихкодов</h2>
-                                                                                                                    
-                                                                                                                        <!-- Окно камеры -->
-                                                                                                                            <div id="reader"></div>
+    <h2>Сканер штрихкодов</h2>
+    
+    <!-- Блок для вывода ошибок, если камера не запустится -->
+    <div id="errorBox"></div>
 
-                                                                                                                                <div class="controls">
-                                                                                                                                        <button class="btn-download" onclick="downloadCSV()">Скачать таблицу (CSV)</button>
-                                                                                                                                                <button class="btn-clear" onclick="clearTable()">Очистить</button>
-                                                                                                                                                    </div>
+    <!-- Кнопка ручного запуска камеры -->
+    <div class="controls">
+        <button id="startBtn" class="btn-start" onclick="startCamera()">📷 Включить камеру</button>
+    </div>
 
-                                                                                                                                                        <!-- Таблица результатов -->
-                                                                                                                                                            <table id="resultTable">
-                                                                                                                                                                    <thead>
-                                                                                                                                                                                <tr>
-                                                                                                                                                                                                <th>№</th>
-                                                                                                                                                                                                                <th>Штрихкод</th>
-                                                                                                                                                                                                                                <th>Время</th>
-                                                                                                                                                                                                                                            </tr>
-                                                                                                                                                                                                                                                    </thead>
-                                                                                                                                                                                                                                                            <tbody></tbody>
-                                                                                                                                                                                                                                                                </table>
+    <!-- Окно камеры -->
+    <div id="reader"></div>
 
-                                                                                                                                                                                                                                                                    <script>
-                                                                                                                                                                                                                                                                            let scannedCodes = new Set(); // Для защиты от случайных дублей подряд
-                                                                                                                                                                                                                                                                                    let records = [];
+    <div class="controls">
+        <button class="btn-download" onclick="downloadCSV()">Скачать CSV</button>
+        <button class="btn-clear" onclick="clearTable()">Очистить</button>
+    </div>
 
-                                                                                                                                                                                                                                                                                            // Звуковой сигнал при успешном сканировании
-                                                                                                                                                                                                                                                                                                    function beep() {
-                                                                                                                                                                                                                                                                                                                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                                                                                                                                                                                                                                                                                                                            const osc = ctx.createOscillator();
-                                                                                                                                                                                                                                                                                                                                        osc.type = "sine";
-                                                                                                                                                                                                                                                                                                                                                    osc.frequency.setValueAtTime(800, ctx.currentTime);
-                                                                                                                                                                                                                                                                                                                                                                osc.connect(ctx.destination);
-                                                                                                                                                                                                                                                                                                                                                                            osc.start();
-                                                                                                                                                                                                                                                                                                                                                                                        osc.stop(ctx.currentTime + 0.1);
-                                                                                                                                                                                                                                                                                                                                                                                                }
+    <!-- Таблица результатов -->
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Штрихкод</th>
+                <th>Время</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let scannedCodes = new Set();
+        let records = [];
+        let html5QrCode = null;
+
+        function showError(msg) {
+            const box = document.getElementById("errorBox");
+            box.style.display = "block";
+            box.innerText = msg;
+        }
+
+        function beep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.1);
+            } catch (e) {}
+        }
+
+        function onScanSuccess(decodedText) {
+            if (scannedCodes.has(decodedText)) return;
+
+            scannedCodes.add(decodedText);
+            beep();
+
+            const now = new Date().toLocaleTimeString('ru-RU');
+            const index = records.length + 1;
+            records.push({ index, code: decodedText, time: now });
+
+            const tbody = document.querySelector("#resultTable tbody");
+            const row = `<tr><td>${index}</td><td><b>${decodedText}</b></td><td>${now}</td></tr>`;
+            tbody.insertAdjacentHTML('afterbegin', row);
+        }
+
+        async function startCamera() {
+            document.getElementById("errorBox").style.display = "none";
+
+            if (typeof Html5Qrcode === "undefined") {
+                showError("Ошибка: библиотека сканера не загрузилась. Проверьте интернет-соединение.");
+                return;
+            }
+
+            try {
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+
+                // Получаем список всех камер телефона
+                const devices = await Html5Qrcode.getCameras();
+                if (!devices || devices.length === 0) {
+                    showError("Камеры не найдены на устройстве.");
+                    return;
+                }
+
+                // Выбираем заднюю камеру (обычно она последняя в списке)
+                let cameraId = devices[devices.length - 1].id;
+                for (let dev of devices) {
+                    if (dev.label.toLowerCase().includes("back") || dev.label.toLowerCase().includes("rear") || dev.label.toLowerCase().includes("задн")) {
+                        cameraId = dev.id;
+                        break;
+                    }
+                }
+
+                await html5QrCode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 280, height: 150 } },
+                    onScanSuccess
+                );
+
+                // Прячем кнопку запуска после успешного старта
+                document.getElementById("startBtn").style.display = "none";
+
+            } catch (err) {
+                showError("Не удалось включить камеру: " + err + "\n\nПроверьте, что сайт открыт в обычном браузере (Chrome/Safari), а не внутри Telegram/WhatsApp, и доступ к камере разрешён.");
+            }
+        }
+
+        function downloadCSV() {
+            if (records.length === 0) {
+                alert("Таблица пуста!");
+                return;
+            }
+            let csvContent = "\uFEFF№;Штрихкод;Время\n";
+            records.forEach(r => {
+                csvContent += `${r.index};"${r.code}";${r.time}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `barcodes_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function clearTable() {
+            if (confirm("Очистить список?")) {
+                scannedCodes.clear();
+                records = [];
+                document.querySelector("#resultTable tbody").innerHTML = "";
+            }
+        }
+    </script>
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                     }
 
                                                                                                                                                                                                                                                                                                                                                                                                         function onScanSuccess(decodedText) {
                                                                                                                                                                                                                                                                                                                                                                                                                     // Если код уже отсканирован, пропускаем
@@ -115,4 +219,4 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     </script>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     </body>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
