@@ -75,39 +75,54 @@ let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
 codes.add(c);beep();
 if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
 recs.push({i:recs.length+1,c,g:grp,v:""});save();render();
-paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("wIn" in window ? "wIn" : "vIn");inp.value="";
+paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("vIn");inp.value="";
 document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
 function saveV(){if(recs.length){recs[recs.length-1].v=document.getElementById("vIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
-async function initDetector(){
-if('BarcodeDetector' in window)return new BarcodeDetector();
-await import('https://jsdelivr.net');
-await import('https://jsdelivr.net');
-return new window.BarcodeDetectorPolyfill();
+function loadScript(src){
+return new Promise((res,rej)=>{
+let s=document.createElement("script");s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
 }
 
 async function startCam(){
 document.getElementById("err").style.display="none";
+let btn=document.getElementById("sBtn");
 try{
 if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
 if(actx.state==="suspended")await actx.resume();
-let btn=document.getElementById("sBtn");btn.innerText="Загрузка сканера...";btn.disabled=true;
+btn.innerText="Загрузка...";btn.disabled=true;
+
 let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
 let v=document.getElementById("vid");v.setAttribute("playsinline",true);v.srcObject=s;await v.play();
-det=await initDetector();
+
+if('BarcodeDetector' in window){
+det=new BarcodeDetector();
 btn.style.display="none";
-loop(v);
+loopNative(v);
+}else{
+if(!window.ZXing){
+await loadScript("https://unpkg.com");
+}
+const reader=new ZXing.BrowserMultiFormatReader();
+btn.style.display="none";
+reader.decodeFromVideoElement(v,(res,e)=>{
+if(res&&res.text)addRec(res.text);
+});
+}
 }catch(e){
-let btn=document.getElementById("sBtn");btn.innerText="📷 Включить камеру";btn.disabled=false;
-err("Ошибка запуска: "+(e.message||"проверьте доступ к камере и интернет"));
+btn.innerText="📷 Включить камеру";btn.disabled=false;
+err("Ошибка: "+(e.message||"не удалось загрузить модуль сканера или камеру"));
 }
 }
-async function loop(v){
+
+async function loopNative(v){
 if(!paused&&v.readyState===v.HAVE_ENOUGH_DATA){try{(await det.detect(v)).forEach(b=>b.rawValue&&addRec(b.rawValue))}catch(e){}}
-requestAnimationFrame(()=>loop(v));
+requestAnimationFrame(()=>loopNative(v));
 }
+
 function exportXLS(){
 if(!recs.length)return alert("Пусто");
 let total=0;
