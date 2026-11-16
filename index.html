@@ -8,7 +8,7 @@
 body{font-family:sans-serif;margin:8px;background:#f4f4f9;text-align:center}
 #camBox{position:relative;width:100%;max-width:480px;margin:0 auto;background:#000;border-radius:8px;overflow:hidden}
 video{width:100%;max-height:240px;object-fit:cover;display:block}
-.guide{position:absolute;inset:32% 5%;border:2px solid #0f6;border-radius:6px;box-shadow:0 0 0 999px rgba(0,0,0,.35);pointer-events:none}
+.guide{position:absolute;inset:30% 4%;border:2px solid #0f6;border-radius:6px;box-shadow:0 0 0 999px rgba(0,0,0,.35);pointer-events:none}
 .guide::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,0,0,.8)}
 #dbg{font-size:11px;color:#555;margin:3px 0}
 button{padding:11px;font-size:15px;border:none;border-radius:6px;font-weight:bold;margin:3px;cursor:pointer}
@@ -73,44 +73,73 @@ document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus()
 }
 function saveV(){if(recs.length){recs[recs.length-1].v=document.getElementById("vIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
-
+const S128="212222222122222221121223121322131222122213122312132212221213221312231212112232122132122231113222123122123221223211221132221231213212223112312131311222321122321221312212322112322211212123212321232121111323131123131321112313132113132311211313231113231311112133112331132131113123113321133121313121211331231131213113213311213131311123311321331121312113312311332111314111221411431111111224111422121124121421141122141221112214112412122114122411142112142211241211221114413111241112134111111242121142121241114212124112124211411212421112421211212141214121412121111143111341131141114113114311411113411311113141114131311141411131211412211214211232";
+const M128={};for(let i=0;i<106;i++)M128[S128.substr(i*6,6)]=i;
 const CB={"0000011":"0","0000110":"1","0001001":"2","1100000":"3","0010010":"4","1000010":"5","0100001":"6","0100100":"7","0110000":"8","1001000":"9","0001100":"-","0011000":"$","1000101":":","1010001":"/","1010100":".","0010101":"+","0011010":"A","0101001":"B","0001011":"C","0001110":"D"};
-function decCB(r){
+
+function decLine(g){
+let w=g.length,r=[],c=0,n=0,win=45;
+for(let i=0;i<w;i++){
+let mn=255,mx=0,a=Math.max(0,i-win),b=Math.min(w,i+win);
+for(let j=a;j<b;j++){if(g[j]<mn)mn=g[j];if(g[j]>mx)mx=g[j]}
+let bit=(mx-mn>28&&g[i]<(mn+mx)/2)?1:0;
+if(i===0){c=bit;n=1}else if(bit===c)n++;else{r.push(n);c=bit;n=1}
+}
+r.push(n);if(g>128)r.shift();
+for(let s=0;s<r.length-18;s+=2){
+let u=(r[s]+r[s+1]+r[s+2]+r[s+3]+r[s+4]+r[s+5])/11;if(u<1)continue;
+let p="";for(let k=0;k<6;k++)p+=Math.min(4,Math.max(1,Math.round(r[s+k]/u)));
+let st=M128[p];if(st!==103&&st!==104&&st!==105)continue;
+let v=[st],pos=s+6,ok=false;
+while(pos+6<=r.length){
+let u2=(r[pos]+r[pos+1]+r[pos+2]+r[pos+3]+r[pos+4]+r[pos+5])/11,p2="";
+for(let k=0;k<6;k++)p2+=Math.min(4,Math.max(1,Math.round(r[pos+k]/u2)));
+if(p2==="233111"&&r[pos+6]){ok=true;break}
+let d=M128[p2];if(d===undefined)break;
+v.push(d);pos+=6;
+}
+if(ok&&v.length>=4){
+let chk=v.pop(),sum=v;for(let i=1;i<v.length;i++)sum+=v[i]*i;
+if(sum%103===chk){
+let md=v===105?"C":(v===103?"A":"B"),out="";
+for(let i=1;i<v.length;i++){
+let d=v[i];if(d===99){md="C";continue}if(d===100){md="B";continue}if(d===101){md="A";continue}
+if(md==="C"){if(d<100)out+=(d<10?"0":"")+d}else{if(d>=16&&d<=25)out+=String(d-16)}
+}
+if(out.length>=7)return{code:out,bars:r.length};
+}
+}
+}
 for(let s=0;s<r.length-35;s+=2){
 let out="";
 for(let p=s;p+7<=r.length;p+=8){
 let seg=r.slice(p,p+7),mx=Math.max(...seg),mn=Math.min(...seg);
-if(mx/mn<1.4||mx/mn>5)break;
+if(mx/mn<1.3||mx/mn>5)break;
 let thr=(mx+mn)/2,ch=CB[seg.map(x=>x>thr?"1":"0").join("")];
 if(!ch||(out.length===0&&!"ABCD".includes(ch)))break;
 out+=ch;
-if(out.length>1&&"ABCD".includes(ch)){let d=out.slice(1,-1).replace(/\D/g,'');if(d.length>=8)return d;break}
-if(p+7<r.length&&r[p+7]>thr*1.4)break;
+if(out.length>1&&"ABCD".includes(ch)){let d=out.slice(1,-1).replace(/\D/g,'');if(d.length>=7)return{code:d,bars:r.length};break}
 }
 }
-return null;
+return{code:null,bars:r.length};
 }
 
 const cvs=document.createElement("canvas"),ctx2=cvs.getContext("2d",{willReadFrequently:true});
 function scanFB(v){
 let vw=v.videoWidth,vh=v.videoHeight;if(!vw||!vh)return;
-cvs.width=Math.min(1280,vw);cvs.height=Math.round(cvs.width*(vh/vw));
+cvs.width=Math.min(1000,vw);cvs.height=Math.round(cvs.width*(vh/vw));
 ctx2.drawImage(v,0,0,cvs.width,cvs.height);
-let y0=Math.floor(cvs.height*.32),y1=Math.floor(cvs.height*.68),step=Math.max(2,Math.floor((y1-y0)/18));
-let img=ctx2.getImageData(0,y0,cvs.width,y1-y0).data,maxR=0;
+let y0=Math.floor(cvs.height*.3),y1=Math.floor(cvs.height*.7),step=Math.max(2,Math.floor((y1-y0)/14));
+let img=ctx2.getImageData(0,y0,cvs.width,y1-y0).data,maxB=0;
 for(let y=0;y<y1-y0;y+=step){
 let l=new Uint8Array(cvs.width),off=y*cvs.width*4;
 for(let x=0;x<cvs.width;x++){let p=off+x*4;l[x]=(img[p]*30+img[p+1]*59+img[p+2]*11)/100}
-for(let g of [l,l.slice().reverse()]){
-let mn=255,mx=0;for(let i=0;i<g.length;i++){if(g[i]<mn)mn=g[i];if(g[i]>mx)mx=g[i]}
-if(mx-mn<35)continue;
-let t=(mn+mx)/2,r=[],c=g<t?1:0,n=0;
-for(let i=0;i<g.length;i++){let b=g[i]<t?1:0;if(b===c)n++;else{r.push(n);c=b;n=1}}
-r.push(n);if(g>=t)r.shift();if(r.length>maxR)maxR=r.length;
-let res=decCB(r);if(res){addRec(res);return}
+for(let arr of [l,l.slice().reverse()]){
+let res=decLine(arr);if(res.bars>maxB)maxB=res.bars;
+if(res.code){addRec(res.code);return}
 }
 }
-if(++fCnt%15===0)document.getElementById("dbg").innerText="Кадр "+cvs.width+"x"+cvs.height+" | полос: "+maxR;
+if(++fCnt%12===0)document.getElementById("dbg").innerText="Кадр "+cvs.width+"x"+cvs.height+" | полос: "+maxB;
 }
 
 async function startCam(){
