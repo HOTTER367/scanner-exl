@@ -6,7 +6,8 @@
 <title>Сканер плазмы</title>
 <style>
 body{font-family:sans-serif;margin:10px;background:#f4f4f9;text-align:center}
-video{width:100%;max-width:480px;max-height:240px;background:#000;border-radius:8px;object-fit:cover}
+#camBox{width:100%;max-width:480px;margin:0 auto;background:#000;border-radius:8px;overflow:hidden}
+video{width:100%;max-height:240px;object-fit:cover;display:block}
 button{padding:12px;font-size:15px;border:none;border-radius:6px;font-weight:bold;margin:3px;cursor:pointer}
 .b-main{background:#007bff;color:#fff;width:90%;max-width:300px}
 .b-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:480px;margin:8px auto}
@@ -17,7 +18,7 @@ th,td{border:1px solid #ddd;padding:6px}
 th{background:#333;color:#fff}
 .warn{background:#fff3cd}
 #err{color:#721c24;background:#f8d7da;padding:8px;border-radius:6px;display:none;margin:8px auto;max-width:480px}
-#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:99}
 .mbox{background:#fff;padding:18px;border-radius:10px;width:85%;max-width:320px}
 .mbox input{width:80%;padding:10px;font-size:22px;text-align:center;margin:10px 0;border:2px solid #007bff;border-radius:6px}
 </style>
@@ -25,7 +26,7 @@ th{background:#333;color:#fff}
 <body>
 <div id="err"></div>
 <button id="sBtn" class="b-main" onclick="startCam()">📷 Включить камеру</button>
-<div><video id="vid" playsinline muted></video></div>
+<div id="camBox"><video id="vid" playsinline muted></video></div>
 
 <div class="b-grid">
 <button class="b-grp" onclick="setGrp('O(I)',this)">O(I)</button>
@@ -81,9 +82,9 @@ document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus()
 function saveV(){if(recs.length){recs[recs.length-1].v=document.getElementById("vIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
-function loadScript(src){
+function loadLib(src){
 return new Promise((res,rej)=>{
-let s=document.createElement("script");s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);
+let s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Не загрузился файл "+src));document.head.appendChild(s);
 });
 }
 
@@ -95,26 +96,22 @@ if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
 if(actx.state==="suspended")await actx.resume();
 btn.innerText="Запуск...";btn.disabled=true;
 
-let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
-let v=document.getElementById("vid");v.setAttribute("playsinline",true);v.srcObject=s;await v.play();
-
 if('BarcodeDetector' in window){
-det=new BarcodeDetector();
-btn.style.display="none";
-loopNative(v);
+let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+let v=document.getElementById("vid");v.srcObject=s;await v.play();
+det=new BarcodeDetector();btn.style.display="none";loopNative(v);
 }else{
-if(!window.ZXing){
-await loadScript("https://cloudflare.com");
+document.getElementById("vid").remove();
+if(!window.Html5Qrcode){
+await loadLib("https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js");
 }
-const reader=new ZXing.BrowserMultiFormatReader();
+const qr=new Html5Qrcode("camBox");
+await qr.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:140}},txt=>addRec(txt),()=>{});
 btn.style.display="none";
-reader.decodeFromVideoElement(v,(res,e)=>{
-if(res&&res.text)addRec(res.text);
-});
 }
 }catch(e){
 btn.innerText="📷 Включить камеру";btn.disabled=false;
-err("Ошибка ("+(e.name||"Сбой")+"): "+(e.message||"не удалось запустить сканер"));
+err("Ошибка: "+(e.message||e));
 }
 }
 
