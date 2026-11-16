@@ -47,28 +47,37 @@ th{background:#333;color:#fff}
 </div></div>
 
 <script>
-let codes=new Set(),recs=[],det=null,grp="",paused=false;
+const KEY="plasma_scan_data";
+let recs=JSON.parse(localStorage.getItem(KEY)||"[]");
+let codes=new Set(recs.map(r=>r.c));
+let det=null,grp="",paused=false;
+
 const err=m=>{let e=document.getElementById("err");e.style.display="block";e.innerText=m};
 const beep=()=>{try{let c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.frequency.value=800;o.connect(c.destination);o.start();o.stop(c.currentTime+.1)}catch(e){}};
+const save=()=>localStorage.setItem(KEY,JSON.stringify(recs));
+
+function render(){
+let tb=document.querySelector("#tbl tbody");tb.innerHTML="";
+[...recs].reverse().forEach(r=>{
+let cls=(r.g&&r.w)?"":"warn";
+tb.insertAdjacentHTML('beforeend',`<tr class="${cls}"><td>${r.i}</td><td><b>${r.c}</b></td><td style="color:#c9302c;font-weight:bold">${r.g||"—"}</td><td style="font-weight:bold">${r.w?r.w+" г":"—"}</td></tr>`);
+});
+}
+render();
 
 function setGrp(g,b){
 grp=g;document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'));b.classList.add('active');
-if(recs.length){recs[recs.length-1].g=g;updRow()}
-}
-function updRow(){
-let r=document.querySelector("#tbl tbody tr"),l=recs[recs.length-1];
-if(r&&l){r.children.innerText=l.g||"—";r.children.innerText=l.w?l.w+" г":"—";if(l.g&&l.w)r.classList.remove("warn")}
+if(recs.length){recs[recs.length-1].g=g;save();render()}
 }
 function addRec(raw){
 let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
 codes.add(c);beep();
 if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
-let i=recs.length+1;recs.push({i,c,g:grp,w:""});
-document.querySelector("#tbl tbody").insertAdjacentHTML('afterbegin',`<tr class="warn"><td>${i}</td><td><b>${c}</b></td><td>${grp||"—"}</td><td>—</td></tr>`);
+recs.push({i:recs.length+1,c,g:grp,w:""});save();render();
 paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("wIn");inp.value="";
 document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
-function saveW(){if(recs.length){recs[recs.length-1].w=document.getElementById("wIn").value.trim();updRow()}closeM()}
+function saveW(){if(recs.length){recs[recs.length-1].w=document.getElementById("wIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
 async function startCam(){
@@ -89,7 +98,7 @@ let t="№;Штрихкод;Группа крови;Вес\r\n"+recs.map(r=>`${r
 let b=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),new TextEncoder().encode(t)],{type:"text/csv;charset=utf-8;"});
 let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
-function clr(){if(confirm("Очистить?")){codes.clear();recs=[];document.querySelector("#tbl tbody").innerHTML=""}}
+function clr(){if(confirm("Очистить все сохранённые записи?")){codes.clear();recs=[];localStorage.removeItem(KEY);render()}}
 </script>
 </body>
 </html>
