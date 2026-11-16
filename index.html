@@ -38,10 +38,10 @@ th{background:#333;color:#fff}
 <button style="background:#28a745;color:#fff" onclick="exportXLS()">Скачать Excel</button>
 <button style="background:#6c757d;color:#fff" onclick="clr()">Очистить</button>
 
-<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Вес</th></tr></thead><tbody></tbody></table>
+<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Объем</th></tr></thead><tbody></tbody></table>
 
 <div id="modal"><div class="mbox">
-<b>Введите вес (г)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
+<b>Введите объем (мл)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
 <input type="number" id="wIn" inputmode="decimal" onkeydown="if(event.key==='Enter')saveW()">
 <div><button onclick="closeM()">Пропустить</button><button style="background:#28a745;color:#fff" onclick="saveW()">Сохранить</button></div>
 </div></div>
