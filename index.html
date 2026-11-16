@@ -93,7 +93,7 @@ let btn=document.getElementById("sBtn");
 try{
 if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
 if(actx.state==="suspended")await actx.resume();
-btn.innerText="Загрузка...";btn.disabled=true;
+btn.innerText="Запуск...";btn.disabled=true;
 
 let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
 let v=document.getElementById("vid");v.setAttribute("playsinline",true);v.srcObject=s;await v.play();
@@ -104,7 +104,7 @@ btn.style.display="none";
 loopNative(v);
 }else{
 if(!window.ZXing){
-await loadScript("https://unpkg.com");
+await loadScript("https://cloudflare.com");
 }
 const reader=new ZXing.BrowserMultiFormatReader();
 btn.style.display="none";
@@ -114,7 +114,7 @@ if(res&&res.text)addRec(res.text);
 }
 }catch(e){
 btn.innerText="📷 Включить камеру";btn.disabled=false;
-err("Ошибка: "+(e.message||"не удалось загрузить модуль сканера или камеру"));
+err("Ошибка ("+(e.name||"Сбой")+"): "+(e.message||"не удалось запустить сканер"));
 }
 }
 
