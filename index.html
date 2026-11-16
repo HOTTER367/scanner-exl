@@ -50,10 +50,10 @@ th{background:#333;color:#fff}
 const KEY="plasma_scan_data";
 let recs=JSON.parse(localStorage.getItem(KEY)||"[]");
 let codes=new Set(recs.map(r=>r.c));
-let det=null,grp="",paused=false;
+let det=null,grp="",paused=false,actx=null;
 
 const err=m=>{let e=document.getElementById("err");e.style.display="block";e.innerText=m};
-const beep=()=>{try{let c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.frequency.value=800;o.connect(c.destination);o.start();o.stop(c.currentTime+.1)}catch(e){}};
+const beep=()=>{try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();let o=actx.createOscillator();o.frequency.value=800;o.connect(actx.destination);o.start();o.stop(actx.currentTime+.1)}catch(e){}};
 const save=()=>localStorage.setItem(KEY,JSON.stringify(recs));
 
 function render(){
@@ -75,19 +75,34 @@ let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
 codes.add(c);beep();
 if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
 recs.push({i:recs.length+1,c,g:grp,v:""});save();render();
-paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("vIn");inp.value="";
+paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("wIn" in window ? "wIn" : "vIn");inp.value="";
 document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
 function saveV(){if(recs.length){recs[recs.length-1].v=document.getElementById("vIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
+async function initDetector(){
+if('BarcodeDetector' in window)return new BarcodeDetector();
+await import('https://jsdelivr.net');
+await import('https://jsdelivr.net');
+return new window.BarcodeDetectorPolyfill();
+}
+
 async function startCam(){
 document.getElementById("err").style.display="none";
 try{
-let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
-let v=document.getElementById("vid");v.srcObject=s;await v.play();document.getElementById("sBtn").style.display="none";
-if('BarcodeDetector' in window){det=new BarcodeDetector();loop(v)}else err("Откройте сайт в Google Chrome");
-}catch(e){err("Нет доступа к камере: сбросьте разрешения сайта в настройках браузера")}
+if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
+if(actx.state==="suspended")await actx.resume();
+let btn=document.getElementById("sBtn");btn.innerText="Загрузка сканера...";btn.disabled=true;
+let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+let v=document.getElementById("vid");v.setAttribute("playsinline",true);v.srcObject=s;await v.play();
+det=await initDetector();
+btn.style.display="none";
+loop(v);
+}catch(e){
+let btn=document.getElementById("sBtn");btn.innerText="📷 Включить камеру";btn.disabled=false;
+err("Ошибка запуска: "+(e.message||"проверьте доступ к камере и интернет"));
+}
 }
 async function loop(v){
 if(!paused&&v.readyState===v.HAVE_ENOUGH_DATA){try{(await det.detect(v)).forEach(b=>b.rawValue&&addRec(b.rawValue))}catch(e){}}
@@ -106,7 +121,8 @@ total=Math.round(total*100)/100;
 let sumRow=`<tr><td colspan="3" style="font-weight:bold;text-align:right">Общий объём:</td><td style="font-weight:bold">${total}</td></tr>`;
 let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Объём</th></tr>${rows}${sumRow}</table></body></html>`;
 let b=new Blob([html],{type:"application/vnd.ms-excel;charset=utf-8"});
-let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.xls`;a.click();
+let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.xls`;
+document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 function clr(){if(confirm("Очистить все сохранённые записи?")){codes.clear();recs=[];localStorage.removeItem(KEY);render()}}
 </script>
