@@ -76,11 +76,14 @@ function closeM(){document.getElementById("modal").style.display="none";paused=f
 const S128="212222222122222221121223121322131222122213122312132212221213221312231212112232122132122231113222123122123221223211221132221231213212223112312131311222321122321221312212322112322211212123212321232121111323131123131321112313132113132311211313231113231311112133112331132131113123113321133121313121211331231131213113213311213131311123311321331121312113312311332111314111221411431111111224111422121124121421141122141221112214112412122114122411142112142211241211221114413111241112134111111242121142121241114212124112124211411212421112421211212141214121412121111143111341131141114113114311411113411311113141114131311141411131211412211214211232";
 const M128={};for(let i=0;i<106;i++)M128[S128.substr(i*6,6)]=i;
 const CB={"0000011":"0","0000110":"1","0001001":"2","1100000":"3","0010010":"4","1000010":"5","0100001":"6","0100100":"7","0110000":"8","1001000":"9","0001100":"-","0011000":"$","1000101":":","1010001":"/","1010100":".","0010101":"+","0011010":"A","0101001":"B","0001011":"C","0001110":"D"};
+const EAN_L={"3211":0,"2221":1,"2122":2,"1411":3,"1132":4,"1231":5,"1114":6,"1312":7,"1213":8,"3112":9};
+const EAN_G={"1123":0,"1222":1,"2212":2,"1141":3,"2311":4,"1321":5,"4111":6,"2131":7,"3121":8,"2113":9};
+const EAN_F={"LLLLLL":0,"LLGLGG":1,"LLGGLG":2,"LLGGGL":3,"LGLLGG":4,"LGGLLG":5,"LGGGLL":6,"LGLGLG":7,"LGLGGL":8,"LGGLGL":9};
 
-function getPat(r,pos){
-let s=0;for(let k=0;k<6;k++)s+=r.at(pos+k);
-let u=s/11;if(u<0.8)return "";
-let p="";for(let k=0;k<6;k++)p+=Math.min(4,Math.max(1,Math.round(r.at(pos+k)/u)));
+function getPat(r,pos,cnt,mod){
+let s=0;for(let k=0;k<cnt;k++)s+=r.at(pos+k);
+let u=s/mod;if(u<0.7)return "";
+let p="";for(let k=0;k<cnt;k++)p+=Math.min(4,Math.max(1,Math.round(r.at(pos+k)/u)));
 return p;
 }
 
@@ -95,12 +98,13 @@ if(i===0){c=bit;n=1}else if(bit===c)n++;else{r.push(n);c=bit;n=1}
 r.push(n);
 if(g.at(0)>128)r.shift();
 
+// 1. Code 128 (пакеты крови/плазмы)
 for(let s=0;s<r.length-18;s+=2){
-let st=M128[getPat(r,s)];
+let st=M128[getPat(r,s,6,11)];
 if(st!==103&&st!==104&&st!==105)continue;
 let v=[st],pos=s+6,ok=false;
 while(pos+6<=r.length){
-let p2=getPat(r,pos);
+let p2=getPat(r,pos,6,11);
 if(p2==="233111"&&pos+6<r.length){ok=true;break}
 let d=M128[p2];if(d===undefined)break;
 v.push(d);pos+=6;
@@ -120,6 +124,7 @@ if(out.length>=6)return{code:out,bars:r.length};
 }
 }
 
+// 2. Codabar (медицинские этикетки)
 for(let s=0;s<r.length-35;s+=2){
 let out="";
 for(let p=s;p+7<=r.length;p+=8){
@@ -130,6 +135,25 @@ if(!ch||(out.length===0&&!"ABCD".includes(ch)))break;
 out+=ch;
 if(out.length>1&&"ABCD".includes(ch)){let d=out.slice(1,-1).replace(/\D/g,'');if(d.length>=6)return{code:d,bars:r.length};break}
 }
+}
+
+// 3. EAN-13 (товарные штрихкоды для проверки)
+for(let s=0;s<=r.length-59;s+=2){
+if(getPat(r,s,3,3)!=="111"||getPat(r,s+27,5,5)!=="11111"||getPat(r,s+56,3,3)!=="111")continue;
+let lg="",digs=[],ok=true;
+for(let i=0;i<6;i++){
+let p=getPat(r,s+3+i*4,4,7);
+if(p in EAN_L){lg+="L";digs.push(EAN_L[p])}else if(p in EAN_G){lg+="G";digs.push(EAN_G[p])}else{ok=false;break}
+}
+if(!ok||!(lg in EAN_F))continue;
+digs.unshift(EAN_F[lg]);
+for(let i=0;i<6;i++){
+let p=getPat(r,s+32+i*4,4,7);
+if(p in EAN_L)digs.push(EAN_L[p]);else{ok=false;break}
+}
+if(!ok)continue;
+let sum=0;for(let i=0;i<12;i++)sum+=digs.at(i)*(i%2===0?1:3);
+if((10-(sum%10))%10===digs.at(12))return{code:digs.join(""),bars:r.length};
 }
 return{code:null,bars:r.length};
 }
