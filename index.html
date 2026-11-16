@@ -38,12 +38,12 @@ th{background:#333;color:#fff}
 <button style="background:#28a745;color:#fff" onclick="exportXLS()">Скачать Excel</button>
 <button style="background:#6c757d;color:#fff" onclick="clr()">Очистить</button>
 
-<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Объем</th></tr></thead><tbody></tbody></table>
+<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Объём</th></tr></thead><tbody></tbody></table>
 
 <div id="modal"><div class="mbox">
-<b>Введите объем (мл)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
-<input type="number" id="wIn" inputmode="decimal" onkeydown="if(event.key==='Enter')saveW()">
-<div><button onclick="closeM()">Пропустить</button><button style="background:#28a745;color:#fff" onclick="saveW()">Сохранить</button></div>
+<b>Введите объём (мл)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
+<input type="number" id="vIn" inputmode="decimal" onkeydown="if(event.key==='Enter')saveV()">
+<div><button onclick="closeM()">Пропустить</button><button style="background:#28a745;color:#fff" onclick="saveV()">Сохранить</button></div>
 </div></div>
 
 <script>
@@ -59,8 +59,9 @@ const save=()=>localStorage.setItem(KEY,JSON.stringify(recs));
 function render(){
 let tb=document.querySelector("#tbl tbody");tb.innerHTML="";
 [...recs].reverse().forEach(r=>{
-let cls=(r.g&&r.w)?"":"warn";
-tb.insertAdjacentHTML('beforeend',`<tr class="${cls}"><td>${r.i}</td><td><b>${r.c}</b></td><td style="color:#c9302c;font-weight:bold">${r.g||"—"}</td><td style="font-weight:bold">${r.w?r.w+" г":"—"}</td></tr>`);
+let val=r.v??r.w??"";
+let cls=(r.g&&val)?"":"warn";
+tb.insertAdjacentHTML('beforeend',`<tr class="${cls}"><td>${r.i}</td><td><b>${r.c}</b></td><td style="color:#c9302c;font-weight:bold">${r.g||"—"}</td><td style="font-weight:bold">${val?val+" мл":"—"}</td></tr>`);
 });
 }
 render();
@@ -73,11 +74,11 @@ function addRec(raw){
 let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
 codes.add(c);beep();
 if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
-recs.push({i:recs.length+1,c,g:grp,w:""});save();render();
-paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("wIn");inp.value="";
+recs.push({i:recs.length+1,c,g:grp,v:""});save();render();
+paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("vIn");inp.value="";
 document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
-function saveW(){if(recs.length){recs[recs.length-1].w=document.getElementById("wIn").value.trim();save();render()}closeM()}
+function saveV(){if(recs.length){recs[recs.length-1].v=document.getElementById("vIn").value.trim();save();render()}closeM()}
 function closeM(){document.getElementById("modal").style.display="none";paused=false}
 
 async function startCam(){
@@ -94,8 +95,16 @@ requestAnimationFrame(()=>loop(v));
 }
 function exportXLS(){
 if(!recs.length)return alert("Пусто");
-let rows=recs.map(r=>`<tr><td>${r.i}</td><td style="mso-number-format:'\\@'">${r.c}</td><td>${r.g}</td><td>${r.w}</td></tr>`).join("");
-let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Вес</th></tr>${rows}</table></body></html>`;
+let total=0;
+let rows=recs.map(r=>{
+let val=String(r.v??r.w??"").replace(",",".");
+let num=parseFloat(val);
+if(!isNaN(num))total+=num;
+return `<tr><td>${r.i}</td><td style="mso-number-format:'\\@'">${r.c}</td><td>${r.g}</td><td>${val}</td></tr>`;
+}).join("");
+total=Math.round(total*100)/100;
+let sumRow=`<tr><td colspan="3" style="font-weight:bold;text-align:right">Общий объём:</td><td style="font-weight:bold">${total}</td></tr>`;
+let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Объём</th></tr>${rows}${sumRow}</table></body></html>`;
 let b=new Blob([html],{type:"application/vnd.ms-excel;charset=utf-8"});
 let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.xls`;a.click();
 }
