@@ -14,8 +14,10 @@ video{width:100%;max-height:240px;object-fit:cover;display:block}
 button{padding:11px;font-size:15px;border:none;border-radius:6px;font-weight:bold;margin:3px;cursor:pointer}
 .b-main{background:#007bff;color:#fff;width:90%;max-width:300px}
 .b-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:480px;margin:6px auto}
-.b-grp{background:#e9ecef;border:2px solid #ccc;padding:11px 0}
+.r-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;max-width:480px;margin:5px auto}
+.b-grp,.b-rh{background:#e9ecef;border:2px solid #ccc;padding:11px 0}
 .b-grp.active{background:#d9534f;color:#fff;border-color:#b52b27}
+.b-rh.active{background:#0275d8;color:#fff;border-color:#01549b}
 table{width:100%;max-width:480px;margin:8px auto;border-collapse:collapse;background:#fff;font-size:13px}
 th,td{border:1px solid #ddd;padding:6px}
 th{background:#333;color:#fff}
@@ -37,10 +39,14 @@ th{background:#333;color:#fff}
 <button class="b-grp" onclick="setGrp('B(III)',this)">B(III)</button>
 <button class="b-grp" onclick="setGrp('AB(IV)',this)">AB(IV)</button>
 </div>
-<label><input type="checkbox" id="lock"> Закрепить группу</label><br>
+<div class="r-grid">
+<button class="b-rh" onclick="setRh('Rh+',this)">Rh+</button>
+<button class="b-rh" onclick="setRh('Rh-',this)">Rh-</button>
+</div>
+<label><input type="checkbox" id="lock"> Закрепить группу и резус</label><br>
 <button style="background:#28a745;color:#fff" onclick="exportXLS()">Скачать Excel</button>
 <button style="background:#6c757d;color:#fff" onclick="clr()">Очистить</button>
-<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Объём</th></tr></thead><tbody></tbody></table>
+<table id="tbl"><thead><tr><th>№</th><th>Штрихкод</th><th>Группа</th><th>Резус</th><th>Объём</th></tr></thead><tbody></tbody></table>
 <div id="modal"><div class="mbox">
 <b>Введите объём (мл)</b><div id="mCode" style="font-size:13px;color:#555;margin-top:4px"></div>
 <input type="number" id="vIn" inputmode="decimal" onkeydown="if(event.key==='Enter')saveV()">
@@ -48,7 +54,7 @@ th{background:#333;color:#fff}
 </div></div>
 <script>
 const KEY="plasma_scan_data";
-let recs=JSON.parse(localStorage.getItem(KEY)||"[]"),codes=new Set(recs.map(r=>r.c)),det=null,grp="",paused=false,actx=null,fCnt=0;
+let recs=JSON.parse(localStorage.getItem(KEY)||"[]"),codes=new Set(recs.map(r=>r.c)),det=null,grp="",rh="",paused=false,actx=null,fCnt=0;
 const err=m=>{let e=document.getElementById("err");e.style.display="block";e.innerText=m};
 const beep=()=>{try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();let o=actx.createOscillator();o.frequency.value=800;o.connect(actx.destination);o.start();o.stop(actx.currentTime+.1)}catch(e){}};
 const save=()=>localStorage.setItem(KEY,JSON.stringify(recs));
@@ -57,17 +63,19 @@ function render(){
 let tb=document.querySelector("#tbl tbody");tb.innerHTML="";
 [...recs].reverse().forEach(r=>{
 let v=r.v??r.w??"";
-tb.insertAdjacentHTML('beforeend',`<tr class="${(r.g&&v)?'':'warn'}"><td>${r.i}</td><td><b>${r.c}</b></td><td style="color:#c9302c;font-weight:bold">${r.g||"—"}</td><td style="font-weight:bold">${v?v+" мл":"—"}</td></tr>`);
+let cls=(r.g&&r.rh&&v)?"":"warn";
+tb.insertAdjacentHTML('beforeend',`<tr class="${cls}"><td>${r.i}</td><td><b>${r.c}</b></td><td style="color:#c9302c;font-weight:bold">${r.g||"—"}</td><td style="color:#0275d8;font-weight:bold">${r.rh||"—"}</td><td style="font-weight:bold">${v?v+" мл":"—"}</td></tr>`);
 });
 }
 render();
 
 function setGrp(g,b){grp=g;document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recs.length){recs[recs.length-1].g=g;save();render()}}
+function setRh(r,b){rh=r;document.querySelectorAll('.b-rh').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recs.length){recs[recs.length-1].rh=r;save();render()}}
 function addRec(raw){
 let c=raw.replace(/\D/g,'');if(paused||!c||codes.has(c))return;
 codes.add(c);beep();
-if(!document.getElementById("lock").checked){grp="";document.querySelectorAll('.b-grp').forEach(x=>x.classList.remove('active'))}
-recs.push({i:recs.length+1,c,g:grp,v:""});save();render();
+if(!document.getElementById("lock").checked){grp="";rh="";document.querySelectorAll('.b-grp,.b-rh').forEach(x=>x.classList.remove('active'))}
+recs.push({i:recs.length+1,c,g:grp,rh:rh,v:""});save();render();
 paused=true;document.getElementById("mCode").innerText=c;let inp=document.getElementById("vIn");inp.value="";
 document.getElementById("modal").style.display="flex";setTimeout(()=>inp.focus(),100);
 }
@@ -98,7 +106,6 @@ if(i===0){c=bit;n=1}else if(bit===c)n++;else{r.push(n);c=bit;n=1}
 r.push(n);
 if(g.at(0)>128)r.shift();
 
-// 1. Code 128 (пакеты крови/плазмы)
 for(let s=0;s<r.length-18;s+=2){
 let st=M128[getPat(r,s,6,11)];
 if(st!==103&&st!==104&&st!==105)continue;
@@ -124,7 +131,6 @@ if(out.length>=6)return{code:out,bars:r.length};
 }
 }
 
-// 2. Codabar (медицинские этикетки)
 for(let s=0;s<r.length-35;s+=2){
 let out="";
 for(let p=s;p+7<=r.length;p+=8){
@@ -137,7 +143,6 @@ if(out.length>1&&"ABCD".includes(ch)){let d=out.slice(1,-1).replace(/\D/g,'');if
 }
 }
 
-// 3. EAN-13 (товарные штрихкоды для проверки)
 for(let s=0;s<=r.length-59;s+=2){
 if(getPat(r,s,3,3)!=="111"||getPat(r,s+27,5,5)!=="11111"||getPat(r,s+56,3,3)!=="111")continue;
 let lg="",digs=[],ok=true;
@@ -198,11 +203,11 @@ function exportXLS(){
 if(!recs.length)return alert("Пусто");
 let tot=0,rows=recs.map(r=>{
 let val=String(r.v??r.w??"").replace(",","."),num=parseFloat(val);if(!isNaN(num))tot+=num;
-return `<tr><td>${r.i}</td><td style="mso-number-format:'\\@'">${r.c}</td><td>${r.g}</td><td>${val}</td></tr>`;
+return `<tr><td>${r.i}</td><td style="mso-number-format:'\\@'">${r.c}</td><td>${r.g}</td><td>${r.rh||""}</td><td>${val}</td></tr>`;
 }).join("");
 tot=Math.round(tot*100)/100;
-let sum=`<tr><td colspan="3" style="font-weight:bold;text-align:right">Общий объём:</td><td style="font-weight:bold">${tot}</td></tr>`;
-let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Объём</th></tr>${rows}${sum}</table></body></html>`;
+let sum=`<tr><td colspan="4" style="font-weight:bold;text-align:right">Общий объём:</td><td style="font-weight:bold">${tot}</td></tr>`;
+let html=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1"><tr><th>№</th><th>Штрихкод</th><th>Группа крови</th><th>Резус-фактор</th><th>Объём</th></tr>${rows}${sum}</table></body></html>`;
 let b=new Blob([html],{type:"application/vnd.ms-excel;charset=utf-8"}),a=document.createElement("a");
 a.href=URL.createObjectURL(b);a.download=`plasma_${new Date().toISOString().slice(0,10)}.xls`;
 document.body.appendChild(a);a.click();document.body.removeChild(a);
